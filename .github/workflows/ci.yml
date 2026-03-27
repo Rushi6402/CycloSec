@@ -1,1 +1,23 @@
+name: CI Pipeline
 
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Build Docker
+        run: docker compose up -d --build
+
+      - name: Check running containers
+        run: docker ps
+
+      - name: Shutdown
+        run: docker compose down
