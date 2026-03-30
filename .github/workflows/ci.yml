@@ -50,3 +50,12 @@ jobs:
           docker compose up -d
           echo "containers started"
           docker ps
+      
+      - name: zookeeper
+        run: |
+          echo "waiting for zookeeper " 
+          timeout 60 bash -c '
+            until docker exec zookeeper bash -c " echo ruok | timeout 3 bash -c \"cat >/dev/tcp/localhost/2181\""2>/dev/null; do
+              sleep 3 
+            done'
+          echo "zookeeper ready"
