@@ -51,7 +51,7 @@ jobs:
           echo "containers started"
           docker ps
       
-      - name: zookeeper
+      - name: zookeeper integration
         run: |
           echo "waiting for zookeeper " 
           timeout 60 bash -c '
@@ -59,3 +59,41 @@ jobs:
               sleep 3 
             done'
           echo "zookeeper ready"
+
+      - name: Kafka integration
+        run: |
+          echo "waiting for kafka"
+          timeout 60 bash -c '
+            until docker exec kafka kafka-topics --bootstrap-server localhost:9092 --list 2>/dev/null; do
+              sleep 3
+            done'
+          echo "kafka ready"
+      
+      - name: Elasticsearch integration
+        run: |
+          echo " waiting for elasticsearch"
+          timeout 120 bash -c '
+            until curl -sf http://localhost:9200/_cluster/health | grep -v '\"status\":\"red\'"; do
+              sleep 3
+           done '
+          echo 'Elasticsearch ready'
+
+      - name: redis integration
+        run: |
+          echo: "waiting for redis" 
+          timeout 120 bash -c "
+            until docker exec redis redis-cli ping 2>/gev/null | grep -q PONG ; do
+              sleep 3
+            done"
+          echo "redis" 
+      
+      - name: scylladb integration
+        run: |
+          echo "waiting for scylladb"
+          timeout 180 bash -c "
+            until docker exec scylladb nodetool status 2>/dev/null | grep -q UN ; do 
+              sleep 10 
+            done"
+          echo "scylladb ready"
+      
+           
