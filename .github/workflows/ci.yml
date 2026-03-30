@@ -1,32 +1,39 @@
-name: CI Pipeline
-
+name: CI — Docker Stack Pipeline
+ 
 on:
   push:
-    branches:
-      - master
-
-
-# check Validate docker-compose.yml
-
-validate:
-   name: Validate compose file
-   runs-on: ubuntu-latest
-   steps:
+    branches: [ main, develop, "feature/*" ]
+  pull_request:
+    branches: [ main, develop ]
+ 
+env:
+  KAFKA_BOOTSTRAP: localhost:9092
+  ELASTIC_URL: http://localhost:9200
+ 
+jobs:
+ 
+  # ──────────────────────────────────────────────────────────
+  # JOB 1: Validate docker-compose.yml
+  # ──────────────────────────────────────────────────────────
+  validate:
+    name: Validate Compose File
+    runs-on: ubuntu-latest
+    steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Validate check
+ 
+      - name: Validate syntax
         run: |
-           docker compose config --quiet
-           echo " docker-compose.yml is valid"
-      
-      - name: check all six services exist
-        run: 
+          docker compose config --quiet
+          echo "✔ docker-compose.yml is valid"
+ 
+      - name: Check all 6 services exist
+        run: |
           for svc in zookeeper kafka kafka-ui elasticsearch scylladb redis; do
-            if docker compse config --services | grep -q "^${svc}&";then
-                echo " $svc is found"
-            else:
-                echo " $svc is not found"
-                exit 1
+            if docker compose config --services | grep -q "^${svc}$"; then
+              echo "✔ $svc found"
+            else
+              echo "✘ $svc MISSING"
+              exit 1
             fi
-           done
+          done
