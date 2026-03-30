@@ -7,25 +7,26 @@ on:
 
 # check Validate docker-compose.yml
 jobs:
-validate:
-   name: Validate compose file
-   runs-on: ubuntu-latest
-   steps:
+ validate:
+    name: Validate compose file
+    runs-on: ubuntu-latest
+    steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Validate check
         run: |
-           docker compose config --quiet
-           echo " docker-compose.yml is valid"
+          docker compose config --quiet
+          echo " docker-compose.yml is valid"
       
       - name: check all six services exist
         run: |
           for svc in zookeeper kafka kafka-ui elasticsearch scylladb redis; do
             if docker compose config --services | grep -q "^${svc}$";then
-                echo " $svc is found"
+              echo " $svc is found"
             else
-                echo " $svc is not found"
-                exit 1
+              echo " $svc is not found"
+              exit 1
             fi
-           done
+          done
+  
