@@ -234,7 +234,7 @@ volumes:
     external: true
     name: scylladb_data
   redis_data:
-    external: true
+    
     name: redis_data
  
 
