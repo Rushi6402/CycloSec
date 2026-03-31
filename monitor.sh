@@ -1,10 +1,4 @@
 #!/usr/bin/env bash
-# ============================================================
-#  monitor.sh — Full stack monitoring
-#  Usage: chmod +x monitor.sh && ./monitor.sh
-#  Live mode: watch -n 5 ./monitor.sh
-# ============================================================
-
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 CYAN='\033[0;36m'; BOLD='\033[1m'; RESET='\033[0m'
 
@@ -123,4 +117,4 @@ docker network inspect app-network \
   --format='{{range .Containers}}  • {{.Name}}  ({{.IPv4Address}}){{println}}{{end}}' \
   2>/dev/null || warn "app-network not found"
 
-echo ""
+

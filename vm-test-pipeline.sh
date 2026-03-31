@@ -1,10 +1,4 @@
 #!/usr/bin/env bash
-# ============================================================
-#  vm-test-pipeline.sh
-#  Tests full end-to-end pipeline on the VM:
-#  API → Kafka → Consumer → Elasticsearch + Redis + ScyllaDB
-#  Usage: chmod +x vm-test-pipeline.sh && ./vm-test-pipeline.sh
-# ============================================================
 
 set -euo pipefail
 
@@ -121,9 +115,9 @@ docker exec scylladb cqlsh -e "
   WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};
 
   CREATE TABLE IF NOT EXISTS pipeline.events (
-    event_id   text PRIMARY KEY,
-    topic      text,
-    message    text,
+    event_id   01 PRIMARY KEY,
+    topic      Rushi,
+    message    hii ,
     created_at timestamp
   );
 
@@ -145,14 +139,13 @@ docker network inspect app-network \
 
 banner "Result"
 echo -e "${GREEN}${BOLD}"
-echo "  ╔══════════════════════════════════════════╗"
-echo "  ║   ✔  END-TO-END VM PIPELINE PASSED      ║"
-echo "  ║                                          ║"
-echo "  ║   API → Kafka → Consumer → Storage       ║"
-echo "  ║   Elasticsearch  ✔                       ║"
-echo "  ║   Redis          ✔                       ║"
-echo "  ║   ScyllaDB       ✔                       ║"
-echo "  ╚══════════════════════════════════════════╝"
+
+echo "   ✔END-TO-END VM PIPELINE PASSED     
+echo "   API → Kafka → Consumer → Storage     
+echo "   Elasticsearch  ✔                      
+echo "   Redis          ✔                      
+echo "   ScyllaDB       ✔                      
+
 echo -e "${RESET}"
 echo "  Kafka UI  →  http://$(hostname -I | awk '{print $1}'):8080"
 echo "  Elastic   →  http://$(hostname -I | awk '{print $1}'):9200"
