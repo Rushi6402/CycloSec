@@ -219,19 +219,19 @@ networks:
 
 volumes:
   zookeeper_data:
-     external: true    
+        
      name: zookeeper_data
   zookeeper_log:
     
      name: zookeeper_log
   kafka_data:
-     external: true
+     
      name: kafka_data
   elasticsearch_data:
-     external: true
+   
      name: elasticsearch_data
   scylladb_data:
-    external: true
+   
     name: scylladb_data
   redis_data:
     
