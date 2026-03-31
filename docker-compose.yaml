@@ -1,4 +1,4 @@
-version: "3.8"
+
 
 services:
 
@@ -219,16 +219,22 @@ networks:
 
 volumes:
   zookeeper_data:
-    name: zookeeper_data
+     external: true    
+     name: zookeeper_data
   zookeeper_log:
-    name: zookeeper_log
+     external: true
+     name: zookeeper_log
   kafka_data:
-    name: kafka_data
+     external: true
+     name: kafka_data
   elasticsearch_data:
-    name: elasticsearch_data
+     external: true
+     name: elasticsearch_data
   scylladb_data:
+    external: true
     name: scylladb_data
   redis_data:
+    external: true
     name: redis_data
  
 

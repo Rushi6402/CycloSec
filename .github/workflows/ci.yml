@@ -103,9 +103,9 @@ jobs:
             HEALTH=$(docker inspect --format="{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}" $svc 2>/dev/null)
             RESTARTS=$(docker inspect --format="{{.RestartCount}}" $svc 2>/dev/null || echo "?")
             if [ "$STATE" = "running" ]; then
-              echo "✔ $svc → $HEALTH (restarts: $RESTARTS)"
+              echo " $svc → $HEALTH (restarts: $RESTARTS)"
             else
-              echo "✘ $svc → FAILED"
+              echo " $svc → FAILED"
               ALL_OK=false
             fi
           done
@@ -118,8 +118,8 @@ jobs:
           echo "On app-network: $CONTAINERS"
           for svc in zookeeper kafka kafka-ui elasticsearch scylladb redis; do
             echo "$CONTAINERS" | grep -q "$svc" \
-              && echo "✔ $svc on app-network" \
-              || (echo "✘ $svc NOT on network" && exit 1)
+              && echo "$svc on app-network" \
+              || (echo "$svc NOT on network" && exit 1)
           done
 
       - name: Kafka — produce and consume
@@ -138,7 +138,7 @@ jobs:
             --topic ci-test --from-beginning \
             --max-messages 1 --timeout-ms 15000 2>/dev/null)
 
-          [ -n "$MSG" ] && echo "✔ Kafka message: $MSG" || (echo "✘ Kafka consume failed" && exit 1)
+          [ -n "$MSG" ] && echo "Kafka message: $MSG" || (echo "kafka consume failed" && exit 1)
 
       - name: Elasticsearch — index document
         run: |
@@ -146,16 +146,16 @@ jobs:
             -H "Content-Type: application/json" \
             -d "{\"run\": \"$GITHUB_RUN_NUMBER\", \"status\": \"ok\"}")
           echo "$RESULT" | grep -q '"result":"created"' \
-            && echo "✔ Elasticsearch index works" \
-            || (echo "✘ Elasticsearch failed" && exit 1)
+            && echo "Elasticsearch index works" \
+            || (echo "Elasticsearch failed" && exit 1)
 
       - name: Redis — set and get
         run: |
           docker exec redis redis-cli set ci-run-$GITHUB_RUN_NUMBER "success" EX 3600
           VAL=$(docker exec redis redis-cli get ci-run-$GITHUB_RUN_NUMBER)
           [ "$VAL" = "success" ] \
-            && echo "✔ Redis works: $VAL" \
-            || (echo "✘ Redis failed" && exit 1)
+            && echo "Redis works: $VAL" \
+            || (echo "Redis failed" && exit 1)
 
       - name: ScyllaDB — create table and insert
         run: |
@@ -168,7 +168,7 @@ jobs:
             INSERT INTO ci_test.runs (run_id, status)
             VALUES ('run-$GITHUB_RUN_NUMBER', 'success');
             SELECT * FROM ci_test.runs;
-          " 2>/dev/null && echo "✔ ScyllaDB works" || echo "⚠ ScyllaDB CQL skipped"
+          " 2>/dev/null && echo "ScyllaDB works" || echo "ScyllaDB CQL skipped"
 
       - name: Resource usage report
         run: |
@@ -189,9 +189,8 @@ jobs:
         if: always()
         run: docker compose down -v
 
-  # ──────────────────────────────────────────────────────────
   # JOB 3: VM Deployment Check
-  # ──────────────────────────────────────────────────────────
+
  vm-deployment-check:
     name: VM Deployment Readiness
     runs-on: ubuntu-latest
@@ -216,9 +215,9 @@ jobs:
           PORTS="2181 9092 29092 8080 9200 9300 9042 9160 10000 6379"
           for port in $PORTS; do
             if ! ss -tlnp 2>/dev/null | grep -q ":$port "; then
-              echo "✔ Port $port is free"
+              echo "Port $port is free"
             else
-              echo "⚠ Port $port is in use"
+              echo "Port $port is in use"
             fi
           done
 
@@ -227,8 +226,8 @@ jobs:
           sudo sysctl -w vm.max_map_count=262144
           VAL=$(sysctl vm.max_map_count | awk '{print $3}')
           [ "$VAL" -ge 262144 ] \
-            && echo "✔ vm.max_map_count=$VAL (Elasticsearch requirement met)" \
-            || echo "✘ vm.max_map_count too low for Elasticsearch"
+            && echo "vm.max_map_count=$VAL (Elasticsearch requirement met)" \
+            || echo "vm.max_map_count too low for Elasticsearch"
 
       - name: Full end-to-end pipeline on VM
         run: |
@@ -250,13 +249,13 @@ jobs:
           curl -sf -X POST "http://localhost:9200/vm-test/_doc" \
             -H "Content-Type: application/json" \
             -d '{"source":"kafka","run":"'"$GITHUB_RUN_NUMBER"'","vm":"ubuntu-latest"}' \
-            | grep -q '"result":"created"' && echo "✔ API→Kafka→ES pipeline works"
+            | grep -q '"result":"created"' && echo "API→Kafka→ES pipeline works"
 
           docker exec redis redis-cli set vm-run-$GITHUB_RUN_NUMBER "done" EX 3600
-          echo "✔ Redis cache working"
+          echo "Redis cache working"
 
           echo ""
-          echo "✔ End-to-end VM pipeline successful"
+          echo "End-to-end VM pipeline successful"
 
       - name: Teardown
         if: always()
