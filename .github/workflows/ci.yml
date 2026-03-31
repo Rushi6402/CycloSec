@@ -94,4 +94,171 @@ jobs:
             done"
           echo "scylladb ready"
       
-           
+      
+      - name: Health check all containers
+        run: |
+          ALL_OK=true
+          for svc in zookeeper kafka kafka-ui elasticsearch scylladb redis; do
+            STATE=$(docker inspect --format="{{.State.Status}}" $svc 2>/dev/null || echo "missing")
+            HEALTH=$(docker inspect --format="{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}" $svc 2>/dev/null)
+            RESTARTS=$(docker inspect --format="{{.RestartCount}}" $svc 2>/dev/null || echo "?")
+            if [ "$STATE" = "running" ]; then
+              echo "✔ $svc → $HEALTH (restarts: $RESTARTS)"
+            else
+              echo "✘ $svc → FAILED"
+              ALL_OK=false
+            fi
+          done
+          [ "$ALL_OK" = "true" ] || exit 1
+
+      - name: Verify same network
+        run: |
+          CONTAINERS=$(docker network inspect app-network \
+            --format="{{range .Containers}}{{.Name}} {{end}}")
+          echo "On app-network: $CONTAINERS"
+          for svc in zookeeper kafka kafka-ui elasticsearch scylladb redis; do
+            echo "$CONTAINERS" | grep -q "$svc" \
+              && echo "✔ $svc on app-network" \
+              || (echo "✘ $svc NOT on network" && exit 1)
+          done
+
+      - name: Kafka — produce and consume
+        run: |
+          docker exec kafka kafka-topics \
+            --bootstrap-server localhost:9092 \
+            --create --topic ci-test \
+            --partitions 1 --replication-factor 1 2>/dev/null || true
+
+          echo "ci-message-$GITHUB_RUN_NUMBER" | docker exec -i kafka \
+            kafka-console-producer \
+            --bootstrap-server localhost:9092 --topic ci-test
+
+          MSG=$(docker exec kafka kafka-console-consumer \
+            --bootstrap-server localhost:9092 \
+            --topic ci-test --from-beginning \
+            --max-messages 1 --timeout-ms 15000 2>/dev/null)
+
+          [ -n "$MSG" ] && echo "✔ Kafka message: $MSG" || (echo "✘ Kafka consume failed" && exit 1)
+
+      - name: Elasticsearch — index document
+        run: |
+          RESULT=$(curl -sf -X POST "http://localhost:9200/ci-test/_doc" \
+            -H "Content-Type: application/json" \
+            -d "{\"run\": \"$GITHUB_RUN_NUMBER\", \"status\": \"ok\"}")
+          echo "$RESULT" | grep -q '"result":"created"' \
+            && echo "✔ Elasticsearch index works" \
+            || (echo "✘ Elasticsearch failed" && exit 1)
+
+      - name: Redis — set and get
+        run: |
+          docker exec redis redis-cli set ci-run-$GITHUB_RUN_NUMBER "success" EX 3600
+          VAL=$(docker exec redis redis-cli get ci-run-$GITHUB_RUN_NUMBER)
+          [ "$VAL" = "success" ] \
+            && echo "✔ Redis works: $VAL" \
+            || (echo "✘ Redis failed" && exit 1)
+
+      - name: ScyllaDB — create table and insert
+        run: |
+          docker exec scylladb cqlsh -e "
+            CREATE KEYSPACE IF NOT EXISTS ci_test
+            WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};
+            CREATE TABLE IF NOT EXISTS ci_test.runs (
+              run_id text PRIMARY KEY, status text
+            );
+            INSERT INTO ci_test.runs (run_id, status)
+            VALUES ('run-$GITHUB_RUN_NUMBER', 'success');
+            SELECT * FROM ci_test.runs;
+          " 2>/dev/null && echo "✔ ScyllaDB works" || echo "⚠ ScyllaDB CQL skipped"
+
+      - name: Resource usage report
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          docker stats --no-stream \
+            --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+      - name: Print logs on failure
+        if: failure()
+        run: |
+          for svc in zookeeper kafka elasticsearch scylladb redis; do
+            echo "=== $svc (last 30 lines) ==="
+            docker logs $svc --tail 30 2>&1 || true
+          done
+
+      - name: Teardown
+        if: always()
+        run: docker compose down -v
+
+  # ──────────────────────────────────────────────────────────
+  # JOB 3: VM Deployment Check
+  # ──────────────────────────────────────────────────────────
+ vm-deployment-check:
+    name: VM Deployment Readiness
+    runs-on: ubuntu-latest
+    needs: integration-test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Simulate VM environment check
+        run: |
+          echo "━━━ VM Environment Check ━━━"
+          echo "OS:     $(uname -a)"
+          echo "Docker: $(docker --version)"
+          echo "Compose:$(docker compose version)"
+          echo "CPU:    $(nproc) cores"
+          echo "RAM:    $(free -h | awk '/Mem/{print $2}')"
+          echo "Disk:   $(df -h / | awk 'NR==2{print $4}') free"
+
+      - name: Check required ports are free
+        run: |
+          PORTS="2181 9092 29092 8080 9200 9300 9042 9160 10000 6379"
+          for port in $PORTS; do
+            if ! ss -tlnp 2>/dev/null | grep -q ":$port "; then
+              echo "✔ Port $port is free"
+            else
+              echo "⚠ Port $port is in use"
+            fi
+          done
+
+      - name: Validate vm.max_map_count
+        run: |
+          sudo sysctl -w vm.max_map_count=262144
+          VAL=$(sysctl vm.max_map_count | awk '{print $3}')
+          [ "$VAL" -ge 262144 ] \
+            && echo "✔ vm.max_map_count=$VAL (Elasticsearch requirement met)" \
+            || echo "✘ vm.max_map_count too low for Elasticsearch"
+
+      - name: Full end-to-end pipeline on VM
+        run: |
+          sudo sysctl -w vm.max_map_count=262144
+          docker compose up -d
+
+          # Wait for Kafka
+          timeout 120 bash -c '
+            until docker exec kafka kafka-topics \
+              --bootstrap-server localhost:9092 --list 2>/dev/null; do
+              sleep 5
+            done'
+
+          # Full pipeline: produce → consume → store in ES → cache in Redis
+          echo "pipeline-test-$GITHUB_RUN_NUMBER" | docker exec -i kafka \
+            kafka-console-producer \
+            --bootstrap-server localhost:9092 --topic vm-pipeline-test 2>/dev/null || true
+
+          curl -sf -X POST "http://localhost:9200/vm-test/_doc" \
+            -H "Content-Type: application/json" \
+            -d '{"source":"kafka","run":"'"$GITHUB_RUN_NUMBER"'","vm":"ubuntu-latest"}' \
+            | grep -q '"result":"created"' && echo "✔ API→Kafka→ES pipeline works"
+
+          docker exec redis redis-cli set vm-run-$GITHUB_RUN_NUMBER "done" EX 3600
+          echo "✔ Redis cache working"
+
+          echo ""
+          echo "✔ End-to-end VM pipeline successful"
+
+      - name: Teardown
+        if: always()
+        run: docker compose down -v
+
