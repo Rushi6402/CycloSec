@@ -1,10 +1,4 @@
 #!/usr/bin/env bash
-# ============================================================
-#  vm-setup.sh — Prepare a fresh VM for the full stack
-#  Tested on: Ubuntu 22.04 / 20.04
-#  Usage:  chmod +x vm-setup.sh && sudo ./vm-setup.sh
-# ============================================================
-
 set -euo pipefail
 
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'

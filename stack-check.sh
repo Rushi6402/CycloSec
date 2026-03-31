@@ -1,8 +1,4 @@
 #!/usr/bin/env bash
-# ============================================================
-#  stack-check.sh  –  Validate & monitor your full Docker stack
-#  Usage:  chmod +x stack-check.sh && ./stack-check.sh
-# ============================================================
 
 set -euo pipefail
 
