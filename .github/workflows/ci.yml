@@ -257,7 +257,3 @@ jobs:
           echo ""
           echo "End-to-end VM pipeline successful"
 
-      - name: Teardown
-        if: always()
-        run: docker compose down -v
-

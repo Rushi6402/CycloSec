@@ -1,7 +1,24 @@
+networks:
+  app-network:
+    driver: bridge
+    name: app-network
 
+volumes:
+  zookeeper_data:   
+     name: zookeeper_data
+  zookeeper_log:
+     name: zookeeper_log
+  kafka_data:
+     name: kafka_data
+  elasticsearch_data:
+     name: elasticsearch_data
+  scylladb_data:
+    name: scylladb_data
+  redis_data:
+    name: redis_data
+ 
 
 services:
-
 #zookeeper
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
@@ -33,8 +50,7 @@ services:
         reservations:
           memory: 256M
 
-  #kafka
-
+#kafka
   kafka:
     image: confluentinc/cp-kafka:7.5.0
     container_name: kafka
@@ -75,10 +91,7 @@ services:
           memory: 1G
         reservations:
           memory: 512M
-
-  
- #Kafka-ui
-
+#kafka-ui
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: kafka-ui
@@ -103,8 +116,7 @@ services:
         reservations:
           memory: 256M
 
-  # Elasticsearch
-
+  #   elasticsearch
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
     container_name: elasticsearch
@@ -146,8 +158,7 @@ services:
         reservations:
           memory: 1G
 
-# Scylladb
-
+  # scylladb
   scylladb:
     image: scylladb/scylla:5.4
     container_name: scylladb
@@ -177,9 +188,7 @@ services:
           memory: 1.5G
         reservations:
           memory: 1G
-
-  # Redis
-  
+#redis
   redis:
     image: redis:7.2-alpine
     container_name: redis
@@ -209,31 +218,36 @@ services:
           memory: 384M
         reservations:
           memory: 128M
-
-
-networks:
-  app-network:
-    driver: bridge
-    name: app-network
-
-volumes:
-  zookeeper_data:
-        
-     name: zookeeper_data
-  zookeeper_log:
-    
-     name: zookeeper_log
-  kafka_data:
-     
-     name: kafka_data
-  elasticsearch_data:
-   
-     name: elasticsearch_data
-  scylladb_data:
-   
-    name: scylladb_data
-  redis_data:
-    
-    name: redis_data
- 
-
+#api
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: cyclosec-api
+    restart: unless-stopped
+    networks:
+      - app-network
+    ports:
+      - "8000:8000"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      scylladb:
+        condition: service_healthy
+    env_file:
+      - ./api/.env
+    volumes:
+      - ./api:/app
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
