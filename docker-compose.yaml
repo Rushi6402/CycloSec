@@ -135,6 +135,9 @@ services:
       - cluster.name=docker-cluster
       - node.name=elasticsearch
       - network.host=0.0.0.0
+      - xpack.ml.enabled=false
+      - xpack.watcher.enabled=false
+      - xpack.graph.enabled=false
     ulimits:
       memlock:
         soft: -1
@@ -149,14 +152,14 @@ services:
       interval: 15s
       timeout: 10s
       retries: 15
-      start_period: 60s
+      start_period: 90s
     deploy:
       resources:
         limits:
           cpus: "1.0"
-          memory: 1.5G
+          memory: 800M
         reservations:
-          memory: 1G
+          memory: 512M
 
   # scylladb
   scylladb:
@@ -176,7 +179,7 @@ services:
     volumes:
       - scylladb_data:/var/lib/scylla
     healthcheck:
-      test: ["CMD-SHELL", "nodetool status 2>/dev/null | grep -q UN || exit 1"]
+      test: ["CMD-SHELL", "cqlsh -e 'SELECT now() FROM system.local' 2>/dev/null || exit 1"]
       interval: 20s
       timeout: 15s
       retries: 20

@@ -4,7 +4,6 @@ from kafka import KafkaProducer
 from cassandra.cluster import Cluster
 import json, uuid
 from datetime import datetime
-<<<<<<< HEAD
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -17,7 +16,6 @@ es = Elasticsearch("http://elasticsearch:9200")
 
 # ── ScyllaDB ──────────────────────────────────────────────
 scylla = Cluster(["scylladb"]).connect()
-=======
 
 app = FastAPI(title="CycloSec API")
 
@@ -30,7 +28,7 @@ kafka  = KafkaProducer(
 scylla = Cluster(["scylladb"]).connect()
 
 # Create keyspace + table on startup
->>>>>>> d350c45 (add the api file)
+
 scylla.execute("""
     CREATE KEYSPACE IF NOT EXISTS cyclosec
     WITH replication = {'class':'SimpleStrategy','replication_factor':1}
@@ -45,7 +43,6 @@ scylla.execute("""
     )
 """)
 
-<<<<<<< HEAD
 # ── Kafka — lazy connection (reconnects if dropped) ───────
 _kafka_producer = None
 
@@ -67,8 +64,6 @@ def get_kafka():
     )
     return _kafka_producer
 
-=======
->>>>>>> d350c45 (add the api file)
 # ── Routes ────────────────────────────────────────────────
 
 @app.get("/")
@@ -78,7 +73,6 @@ def root():
 
 @app.get("/health")
 def health():
-<<<<<<< HEAD
     # Kafka
     try:
         k = get_kafka()
@@ -103,12 +97,11 @@ def health():
         "kafka":         kafka_status,
         "elasticsearch": es_status,
         "scylladb":      scylla_status,
-=======
+    }
     return {
         "kafka":         "ok" if kafka.bootstrap_connected() else "error",
         "elasticsearch": "ok" if es.ping() else "error",
         "scylladb":      "ok"
->>>>>>> d350c45 (add the api file)
     }
 
 
@@ -117,7 +110,6 @@ def create_event(type: str, data: str):
     event_id = uuid.uuid4()
     now      = datetime.utcnow()
 
-<<<<<<< HEAD
     results = {"id": str(event_id), "type": type,
                "data": data, "created_at": str(now)}
 
@@ -150,7 +142,6 @@ def create_event(type: str, data: str):
         results["elasticsearch"] = f"error: {str(e)}"
 
     return results
-=======
     # → Kafka
     kafka.send("events", {"id": str(event_id), "type": type, "data": data})
     kafka.flush()
@@ -166,12 +157,12 @@ def create_event(type: str, data: str):
              document={"type": type, "data": data, "created_at": now.isoformat()})
 
     return {"id": str(event_id), "type": type, "data": data, "created_at": str(now)}
->>>>>>> d350c45 (add the api file)
+
 
 
 @app.get("/events")
 def get_events():
-<<<<<<< HEAD
+
     rows = scylla.execute(
         "SELECT id, type, data, created_at FROM events LIMIT 20"
     )
@@ -182,16 +173,14 @@ def get_events():
             for r in rows
         ]
     }
-=======
     rows = scylla.execute("SELECT id, type, data, created_at FROM events LIMIT 20")
     return {"events": [{"id": str(r.id), "type": r.type,
                         "data": r.data, "created_at": str(r.created_at)} for r in rows]}
->>>>>>> d350c45 (add the api file)
 
 
 @app.get("/search")
 def search(q: str):
-<<<<<<< HEAD
+
     result = es.search(
         index="events",
         body={"query": {"multi_match": {"query": q, "fields": ["type", "data"]}}}
@@ -199,9 +188,7 @@ def search(q: str):
     hits = result["hits"]["hits"]
     return {"query": q, "total": len(hits),
             "results": [h["_source"] for h in hits]}
-=======
     result = es.search(index="events",
                        body={"query": {"multi_match": {"query": q, "fields": ["type","data"]}}})
     hits = result["hits"]["hits"]
     return {"query": q, "results": [h["_source"] for h in hits]}
->>>>>>> d350c45 (add the api file)
